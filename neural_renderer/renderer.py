@@ -79,6 +79,30 @@ class Renderer(nn.Module):
         else:
             raise ValueError("mode should be one of None, 'silhouettes' or 'depth'")
 
+    def render_points(self, points_3d):
+        # viewpoint transformation
+        if self.camera_mode == 'look_at':
+            proj_points = nr.look_at(points_3d, self.eye)
+            # perspective transformation
+            if self.perspective:
+                proj_points = nr.perspective(proj_points, angle=self.viewing_angle)
+        elif self.camera_mode == 'look':
+            proj_points = nr.look(points_3d, self.eye, self.camera_direction)
+            # perspective transformation
+            if self.perspective:
+                proj_points = nr.perspective(proj_points, angle=self.viewing_angle)
+        elif self.camera_mode == 'projection':
+            proj_points = nr.projection(points_3d, self.P, self.dist_coeffs, self.orig_size)
+
+        #p[num][dim] = 0.5 * (face[3 * pi[num] + dim] * is + is - 1);
+        rescaled_points = 0.5 * (proj_points[:, :, :2] * self.image_size + self.image_size - 1)
+        
+        points = torch.stack([
+            self.image_size - rescaled_points[:, :, 1],
+            rescaled_points[:, :, 0]], dim = -1)
+
+        return points
+
     def render_silhouettes(self, vertices, faces, K=None, R=None, t=None, dist_coeffs=None, orig_size=None):
 
         # fill back
