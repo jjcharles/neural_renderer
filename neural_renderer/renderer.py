@@ -181,8 +181,6 @@ class Renderer(nn.Module):
         # rasterization
         faces = nr.vertices_to_faces(vertices, faces)
         rendered_faces = nr.rasterize_face_ids(faces, self.image_size, False)
-        num_faces = faces.shape[1]
-        rendered_faces[rendered_faces >= num_faces] = -1 * (num_faces - rendered_faces[rendered_faces >= num_faces])
         return rendered_faces
 
     def render_depth(self, vertices, faces, K=None, R=None, t=None, dist_coeffs=None, orig_size=None):
