@@ -3,7 +3,7 @@ from __future__ import division
 import torch
 
 
-def projection(vertices, K, R, t, dist_coeffs, orig_size, eps=1e-9):
+def projection(vertices, K, R, t, dist_coeffs, orig_size, eps=1e-9, perspective = True):
     '''
     Calculate projective transformation of vertices given a projection matrix
     Input parameters:
@@ -18,8 +18,12 @@ def projection(vertices, K, R, t, dist_coeffs, orig_size, eps=1e-9):
     # instead of P*x we compute x'*P'
     vertices = torch.matmul(vertices, R.transpose(2,1)) + t
     x, y, z = vertices[:, :, 0], vertices[:, :, 1], vertices[:, :, 2]
-    x_ = x / (z + eps)
-    y_ = y / (z + eps)
+    if perspective:
+        x_ = x / (z + eps)
+        y_ = y / (z + eps)
+    else:
+        x_ = x
+        y_ = y
 
     # Get distortion coefficients from vector
     k1 = dist_coeffs[:, None, 0]

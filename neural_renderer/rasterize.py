@@ -95,10 +95,11 @@ class RasterizeFunction(Function):
             alpha_r = alpha_map.clone()
         if ctx.return_depth:
             depth_r = depth_map.clone()
-        return rgb_r, alpha_r, depth_r
+
+        return rgb_r, alpha_r, depth_r, face_index_map.clone()
 
     @staticmethod
-    def backward(ctx, grad_rgb_map, grad_alpha_map, grad_depth_map):
+    def backward(ctx, grad_rgb_map, grad_alpha_map, grad_depth_map, grad_face_index_map):
         '''
         Backward pass
         '''
@@ -296,10 +297,10 @@ def rasterize_rgbad(
 
     if anti_aliasing:
         # 2x super-sampling
-        rgb, alpha, depth = Rasterize(
+        rgb, alpha, depth, face_ids = Rasterize(
             image_size * 2, near, far, eps, background_color, return_rgb, return_alpha, return_depth)(*inputs)
     else:
-        rgb, alpha, depth = Rasterize(
+        rgb, alpha, depth, face_ids = Rasterize(
             image_size, near, far, eps, background_color, return_rgb, return_alpha, return_depth)(*inputs)
 
     # transpose & vertical flip
@@ -316,6 +317,8 @@ def rasterize_rgbad(
         # depth = depth[:, ::-1, :]
         depth = depth[:, list(reversed(range(depth.shape[1]))), :]
 
+    face_ids = face_ids[:, list(reversed(range(face_ids.shape[1]))), :]
+
     if anti_aliasing:
         # 0.5x down-sampling
         if return_rgb:
@@ -329,6 +332,7 @@ def rasterize_rgbad(
         'rgb': rgb if return_rgb else None,
         'alpha': alpha if return_alpha else None,
         'depth': depth if return_depth else None,
+        'face_ids' : face_ids
     }
 
     return ret
@@ -418,6 +422,31 @@ def rasterize_silhouettes(
 
     """
     return rasterize_rgbad(faces, None, image_size, anti_aliasing, near, far, eps, None, False, True, False)['alpha']
+
+def rasterize_face_ids(
+        faces,
+        image_size=DEFAULT_IMAGE_SIZE,
+        anti_aliasing=DEFAULT_ANTI_ALIASING,
+        near=DEFAULT_NEAR,
+        far=DEFAULT_FAR,
+        eps=DEFAULT_EPS,
+):
+    """
+    Generate alpha channels from faces.
+
+    Args:
+        faces: see `rasterize_rgbad`.
+        image_size: see `rasterize_rgbad`.
+        anti_aliasing: see `rasterize_rgbad`.
+        near: see `rasterize_rgbad`.
+        far: see `rasterize_rgbad`.
+        eps: see `rasterize_rgbad`.
+
+    Returns:
+        ~torch.Tensor: Alpha channels. The shape is [batch size, image_size, image_size].
+
+    """
+    return rasterize_rgbad(faces, None, image_size, anti_aliasing, near, far, eps, None, False, True, False)['face_ids']
 
 
 def rasterize_depth(

@@ -79,7 +79,7 @@ class Renderer(nn.Module):
         else:
             raise ValueError("mode should be one of None, 'silhouettes' or 'depth'")
 
-    def render_points(self, points_3d):
+    def render_points(self, points_3d, K=None, R=None, t=None, dist_coeffs=None, orig_size=None):
         # viewpoint transformation
         if self.camera_mode == 'look_at':
             proj_points = nr.look_at(points_3d, self.eye)
@@ -92,7 +92,18 @@ class Renderer(nn.Module):
             if self.perspective:
                 proj_points = nr.perspective(proj_points, angle=self.viewing_angle)
         elif self.camera_mode == 'projection':
-            proj_points = nr.projection(points_3d, self.P, self.dist_coeffs, self.orig_size)
+            if K is None:
+                K = self.K
+            if R is None:
+                R = self.R
+            if t is None:
+                t = self.t
+            if dist_coeffs is None:
+                dist_coeffs = self.dist_coeffs
+            if orig_size is None:
+                orig_size = self.orig_size
+
+            proj_points = nr.projection(points_3d, K, R, t, dist_coeffs, orig_size, perspective=self.perspective)
 
         #p[num][dim] = 0.5 * (face[3 * pi[num] + dim] * is + is - 1);
         rescaled_points = 0.5 * (proj_points[:, :, :2] * self.image_size + self.image_size - 1)
@@ -131,12 +142,48 @@ class Renderer(nn.Module):
                 dist_coeffs = self.dist_coeffs
             if orig_size is None:
                 orig_size = self.orig_size
-            vertices = nr.projection(vertices, K, R, t, dist_coeffs, orig_size)
+            vertices = nr.projection(vertices, K, R, t, dist_coeffs, orig_size, perspective=self.perspective)
 
         # rasterization
         faces = nr.vertices_to_faces(vertices, faces)
         images = nr.rasterize_silhouettes(faces, self.image_size, self.anti_aliasing)
         return images
+
+    def render_face_ids(self, vertices, faces, K=None, R=None, t=None, dist_coeffs=None, orig_size=None):
+         # fill back
+        if self.fill_back:
+            faces = torch.cat((faces, faces[:, :, list(reversed(range(faces.shape[-1])))]), dim=1)
+
+        # viewpoint transformation
+        if self.camera_mode == 'look_at':
+            vertices = nr.look_at(vertices, self.eye)
+            # perspective transformation
+            if self.perspective:
+                vertices = nr.perspective(vertices, angle=self.viewing_angle)
+        elif self.camera_mode == 'look':
+            vertices = nr.look(vertices, self.eye, self.camera_direction)
+            # perspective transformation
+            if self.perspective:
+                vertices = nr.perspective(vertices, angle=self.viewing_angle)
+        elif self.camera_mode == 'projection':
+            if K is None:
+                K = self.K
+            if R is None:
+                R = self.R
+            if t is None:
+                t = self.t
+            if dist_coeffs is None:
+                dist_coeffs = self.dist_coeffs
+            if orig_size is None:
+                orig_size = self.orig_size
+            vertices = nr.projection(vertices, K, R, t, dist_coeffs, orig_size, perspective=self.perspective)
+
+        # rasterization
+        faces = nr.vertices_to_faces(vertices, faces)
+        rendered_faces = nr.rasterize_face_ids(faces, self.image_size, False)
+        num_faces = faces.shape[1]
+        rendered_faces[rendered_faces >= num_faces] = -1 * (num_faces - rendered_faces[rendered_faces >= num_faces])
+        return rendered_faces
 
     def render_depth(self, vertices, faces, K=None, R=None, t=None, dist_coeffs=None, orig_size=None):
 
@@ -166,7 +213,7 @@ class Renderer(nn.Module):
                 dist_coeffs = self.dist_coeffs
             if orig_size is None:
                 orig_size = self.orig_size
-            vertices = nr.projection(vertices, K, R, t, dist_coeffs, orig_size)
+            vertices = nr.projection(vertices, K, R, t, dist_coeffs, orig_size, perspective=self.perspective)
 
         # rasterization
         faces = nr.vertices_to_faces(vertices, faces)
@@ -212,7 +259,7 @@ class Renderer(nn.Module):
                 dist_coeffs = self.dist_coeffs
             if orig_size is None:
                 orig_size = self.orig_size
-            vertices = nr.projection(vertices, K, R, t, dist_coeffs, orig_size)
+            vertices = nr.projection(vertices, K, R, t, dist_coeffs, orig_size, perspective=self.perspective)
 
         # rasterization
         faces = nr.vertices_to_faces(vertices, faces)
@@ -220,6 +267,9 @@ class Renderer(nn.Module):
             faces, textures, self.image_size, self.anti_aliasing, self.near, self.far, self.rasterizer_eps,
             self.background_color)
         return images
+
+    
+
 
     def render(self, vertices, faces, textures, K=None, R=None, t=None, dist_coeffs=None, orig_size=None):
         # fill back
@@ -260,7 +310,7 @@ class Renderer(nn.Module):
                 dist_coeffs = self.dist_coeffs
             if orig_size is None:
                 orig_size = self.orig_size
-            vertices = nr.projection(vertices, K, R, t, dist_coeffs, orig_size)
+            vertices = nr.projection(vertices, K, R, t, dist_coeffs, orig_size, perspective=self.perspective)
 
         # rasterization
         faces = nr.vertices_to_faces(vertices, faces)
