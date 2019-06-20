@@ -266,9 +266,6 @@ class Renderer(nn.Module):
             self.background_color)
         return images
 
-    
-
-
     def render(self, vertices, faces, textures, K=None, R=None, t=None, dist_coeffs=None, orig_size=None):
         # fill back
         if self.fill_back:
