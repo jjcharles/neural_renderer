@@ -13,13 +13,15 @@ def projection(vertices, K, R, t, dist_coeffs, orig_size, eps=1e-9, perspective 
     orig_size: original size of image captured by the camera
     Returns: For each point [X,Y,Z] in world coordinates [u,v,z] where u,v are the coordinates of the projection in
     pixels and z is the depth
+
+    This has been edited to work with cam_pose optimization.
     '''
 
     # instead of P*x we compute x'*P'
     vertices = vertices - t
     vertices = torch.matmul(vertices, R)
     #vertices = torch.matmul(vertices, R.transpose(2,1)) + t
-    print(t)
+    # print(t)
     x, y, z = vertices[:, :, 0], vertices[:, :, 1], vertices[:, :, 2]
     if perspective:
         x_ = x / (z + eps)
