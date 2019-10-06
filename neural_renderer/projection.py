@@ -16,7 +16,10 @@ def projection(vertices, K, R, t, dist_coeffs, orig_size, eps=1e-9, perspective 
     '''
 
     # instead of P*x we compute x'*P'
-    vertices = torch.matmul(vertices, R.transpose(2,1)) + t
+    vertices = vertices - t
+    vertices = torch.matmul(vertices, R)
+    #vertices = torch.matmul(vertices, R.transpose(2,1)) + t
+    print(t)
     x, y, z = vertices[:, :, 0], vertices[:, :, 1], vertices[:, :, 2]
     if perspective:
         x_ = x / (z + eps)
